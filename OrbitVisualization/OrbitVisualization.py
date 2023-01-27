@@ -41,7 +41,7 @@ if __name__ == "__main__":
     
     ts = load.timescale()
     
-    Earth = Environment(6371, 8000, ts.utc(2023, 1, 10), duration=2, grid=False, darkmode=True)
+    Earth = Environment(6371, 8000, ts.utc(2023, 1, 10), duration=4, grid=True, darkmode=True)
     Earth.addSatellite(test)
     Earth.addSatellite(test2)
-    Earth.animate(save=True)
+    Earth.animate(comparison=True)
