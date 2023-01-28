@@ -1,47 +1,86 @@
 from Environment import Environment
 from skyfield.api import load
+from pathlib import Path
 
 class TLE:
     def __init__(self, TLE):
+        """Initialize a TLE object from a string including newlines"""
 
         # Extract TLE lines according to file formatting
         lines = TLE.splitlines()
-
-        if len(lines) == 3:
-            self.name = lines[0]
-            self.line1 = lines[1]
-            self.line2 = lines[2]
-        elif len(lines) == 2:
-            self.name = None
+        
+        if len(lines) == 2:
             self.line1 = lines[0]
             self.line2 = lines[1]
         else:
             raise ValueError
 
-    def __str__(self):
+def compareSatellites(file_directory, environment, save_directory=None):
+    """
+    Produce an animation comparing two satellite orbits
 
-        # Build output string
-        output = ""
+    Args:
+    file_directory - location of stored text file assuming cwd, should be 2 TLEs across 4 lines
+    environment - an existing environment object that the animation will be produced in
+    """
+    
+    # Unpack data from file
+    content = Path(str(Path.cwd()) + file_directory).read_text()
+    lines = content.split('\n')
+    
+    # Ensure the file is valid
+    if len(lines) != 4:
+        raise RuntimeError("A comparison should contain exactly 2 TLEs.")
 
-        if self.name:
-            output += self.name + "\n"
-        output += self.line1 + "\n"
-        output += self.line2
+    # Add both satellites to environment
+    environment.addSatellite(TLE(lines[0] + "\n" + lines[1]))
+    environment.addSatellite(TLE(lines[2] + "\n" + lines[3]))
 
-        return output
+    # Animate the comparison
+    environment.animate(filename=save_directory, comparison=True)
 
+def graphOrbits(file_directory, environment):
+    """
+    Produces a graph displaying the orbits of N satellites
+
+    Args:
+    file_directory - location of stored text file assuming cwd, should be N TLEs across 2N lines
+    environment - an existing environment object that the graph will be produced in
+    """
+    
+    # Unpack data from file
+    content = Path(str(Path.cwd()) + file_directory).read_text()
+    lines = content.split('\n')
+
+    # Slight sanity check
+    if len(lines) % 2 != 0:
+        raise RuntimeError("A TLE file should contain an even number of lines.")
+
+    # Add each satellite to the environment
+    i = 0
+    while i < len(lines):
+        environment.addSatellite(TLE(lines[i] + "\n" + lines[i+1]))
+        i += 2
+
+    # Produce an image of the orbits
+    environment.image()
 
 if __name__ == "__main__":
-    test = TLE("""NEXTSAT-1
-1 43811U 18099BF  23017.44801183  .00004536  00000+0  39757-3 0  9997
-2 43811  97.5949  83.7508 0011279 267.0241  92.9691 14.97097622224635""")
-    test2 = TLE("""STARLINK-3106
-1 49164U 21082AL  23017.70091959  .00023448  00000+0  19664-2 0  9998
-2 49164  70.0020 286.4184 0003135 278.2144  81.8659 14.98329354 75836""")
     
+    # File directory of the data, assume current working directory
+    filedirectory = r"\Data\25 Sats\orbits.txt"
+
+    # Filename to save animation as
+    savename = "3"
+
     ts = load.timescale()
-    
-    Earth = Environment(6371, 8000, ts.utc(2023, 1, 10), duration=4, grid=True, darkmode=True)
-    Earth.addSatellite(test)
-    Earth.addSatellite(test2)
-    Earth.animate(comparison=True)
+    test = ts.utc(2023, 1, 11)
+
+    # Earth object our satellites act around
+    Earth = Environment(8000, ts.utc(2023, 1, 11), duration=4, grid=True, darkmode=True)
+
+    # Compares 2 satellites, output directory can be manually changed
+    #compareSatellites(filedirectory, Earth, save_directory="Orbit Output\\" + savename)
+
+    # Graphs the orbits of n satellites, file should be a list of TLEs
+    graphOrbits(filedirectory, Earth)
