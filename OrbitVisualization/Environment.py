@@ -1,3 +1,4 @@
+from pprint import pp
 from skyfield.api import EarthSatellite
 from skyfield.api import load
 import matplotlib.pyplot as plt
@@ -7,10 +8,21 @@ from datetime import timedelta
 import numpy as np
 
 class Environment:
-    def __init__(self, radius, env_width, start_time, duration=None, grid=False, darkmode=True):
+    def __init__(self, env_radius, start_time, duration=None, grid=False, darkmode=True):
+        """
+        Initializes an environment for orbits to be represented in
+
+        Args:
+        env_radius - half of the total width of the graph environment, should be >6371
+        start_time - when the simulation should be started, a time object from the skyfield library
+        duration - length of simulation in hours (Optional)
+        grid - whether or not to display the 3D grid (Defaults to False)
+        darkmode - whether or not to display output in darkmode (Defaults to True)
+        """
 
         # Object variables
         self.satellites = []
+        self.names = []
         self.ts = load.timescale()
         self.start_time = start_time
         self.duration = duration
@@ -32,7 +44,7 @@ class Environment:
         # Configure second graph
         self.ax2.spines[['right', 'top']].set_visible(False)
         self.ax2.set_xlabel('Time (min)')
-        self.ax2.set_ylabel('Difference (km)')
+        self.ax2.set_ylabel('Separation (km)')
 
         # Hide it until required
         self.ax2.set_visible(False)
@@ -42,14 +54,14 @@ class Environment:
         self.ax1.yaxis.set_major_locator(plt.MaxNLocator(3))
         self.ax1.zaxis.set_major_locator(plt.MaxNLocator(3))
 
-        # Fix aspect ratio and set a fixed angle
+        # Set visual factors
         self.ax1.set_box_aspect([1,1,0.9])
         self.ax1.view_init(10, 45)
 
         # Set size of graph
-        self.ax1.set_xlim(-env_width, env_width)
-        self.ax1.set_ylim(-env_width, env_width)
-        self.ax1.set_zlim(-env_width, env_width)
+        self.ax1.set_xlim(-env_radius, env_radius)
+        self.ax1.set_ylim(-env_radius, env_radius)
+        self.ax1.set_zlim(-env_radius, env_radius)
 
         # Remove axis panes for cosmetic reasons
         self.ax1.xaxis.pane.fill = False
@@ -89,6 +101,8 @@ class Environment:
         # Generate and graph sphere
         theta, phi = np.mgrid[0:2*np.pi:20j, 0:np.pi:20j]
 
+        radius = 6371 # Radius of the Earth in km
+
         x = radius*np.cos(theta)*np.sin(phi)
         y = radius*np.sin(theta)*np.sin(phi)
         z = radius*np.cos(phi)
@@ -96,12 +110,27 @@ class Environment:
         self.ax1.plot_wireframe(x, y, z, color=linecolor, linewidth=0.5)
 
     def addSatellite(self, TLE):
+        """
+        Adds one satellite to the list along with its name
+
+        Args:
+        TLE - TLE object for desired satellite
+        """
 
         # Add satellite to the list
-        self.satellites.append(EarthSatellite(TLE.line1, TLE.line2, name=TLE.name))
-
+        self.satellites.append(EarthSatellite(TLE.line1, TLE.line2))
+        
+        # Add name to the list
+        self.names.append(TLE.line1.split(' ')[1])
 
     def animate(self, filename=None, comparison=False):
+        """
+        Produces an animation of existing satellites in orbit (environment must have a duration)
+
+        Args:
+        filename - Location and filename to save animation at, starts at base directory (EX: Documents\Orbits\Starlink-4171)
+        comparison - Whether or not to include the separation graph (environment must have exactly 2 satellites)
+        """
 
         # Ensure the environment is initialized for animation
         if not self.duration:
@@ -172,12 +201,15 @@ class Environment:
             # Plot orbital path
             pos = sat.at(t).position.km
             x, y, z = pos
-            self.ax1.plot(x, y, z)
+            self.ax1.plot(x, y, z, label=self.names[i])
 
             # Create plot for satellite
             sat_plot, = self.ax1.plot(0, 1, marker="o")
-            sat_plots.append(sat_plot)                
-
+            sat_plots.append(sat_plot)           
+            
+        # Show legend
+        self.ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5), framealpha=0, labelcolor='linecolor')
+            
         # Create animation
         anim = animation.FuncAnimation(self.fig, update, interval=70, repeat=False, 
                                                       frames=t, save_count=3000)
@@ -191,7 +223,21 @@ class Environment:
         # Show the animation
         plt.show()
 
+    def image(self):
+        """Produces an image of existing satellites in orbit"""
+        
+        t = self.ts.linspace(self.start_time, self.end_time, self.duration*120)
 
-    def debug(self):
+        for i, sat in enumerate(self.satellites):
+
+            # Plot orbital path
+            pos = sat.at(t).position.km
+            x, y, z = pos
+            self.ax1.plot(x, y, z, label=self.names[i])
+            
+        # Show legend
+        self.ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5), framealpha=0, labelcolor='linecolor')
+
+        # Show the graph
         plt.show()
 
