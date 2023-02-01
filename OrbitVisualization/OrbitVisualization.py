@@ -79,7 +79,7 @@ if __name__ == "__main__":
     test = ts.utc(2023, 1, 11)
 
     # Earth object our satellites act around
-    Earth = Environment(8000, ts.utc(2023, 1, 11), duration=4, grid=True, darkmode=True, Earth=True)
+    Earth = Environment(8000, ts.utc(2023, 1, 11), duration=4, grid=False, darkmode=True, Earth=False)
 
     # Fill collider data (in-track, cross-track, radial)
     colliders = (2000, 1000, 1100,

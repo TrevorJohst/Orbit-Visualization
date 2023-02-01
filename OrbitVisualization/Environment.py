@@ -124,7 +124,7 @@ class Environment:
         # Add name to the list
         self.names.append(TLE.line1.split(' ')[1])
 
-    def collisionEllipsoid(self, in_track, cross_track, radial, time):
+    def collisionEllipsoid(self, in_track, cross_track, radial, time, sat_num):
         """
         Creates a collision ellipsoid along the in-track and returns it
 
@@ -132,6 +132,8 @@ class Environment:
         in_track - length of ellipsoid in in-track direction
         cross_track - length of ellipsoid in cross-track direction
         radial - length of ellipsoid in radial direction
+        time - SkyField time object of time at desired ellipsoid
+        sat_num - Which satellite the ellipsoid is tailored for
 
         Returns:
         Tuple of ndarrays for plotting an ellipsoid surface (X, Y, Z)
@@ -145,7 +147,7 @@ class Environment:
         z = radial * np.cos(theta)
 
         # Determine angles of velocity vector
-        vx, vy, vz = self.satellites[0].at(time).velocity.m_per_s
+        vx, vy, vz = self.satellites[sat_num].at(time).velocity.m_per_s
         speed0 = np.sqrt(vx**2 + vy**2 + vz**2)
                         
         upsilon = np.arctan(vy/vx)
@@ -163,8 +165,8 @@ class Environment:
         Ry = np.array([[np.cos(beta),       0,          np.sin(beta)],
                        [0,                  1,          0           ],
                        [-np.sin(beta),      0,          np.cos(beta)]])
-        
-        # TODO: X-axis rotation matrix?
+
+        # TODO: X-axis rotation matrix(?)
         
         # Rotate all ellipsoid points
         OX = []
@@ -201,6 +203,12 @@ class Environment:
             raise RuntimeError("Cannot compare without exactly 2 satellites.")
         
         def update(time):
+            """
+            Helper method that updates our environment
+
+            Args:
+            time - SkyField time object of time at desired frame
+            """
 
             for i, sat in enumerate(self.satellites):
                 
@@ -237,11 +245,11 @@ class Environment:
                         collider_1.remove()
 
                     # Close approach handling
-                    if dist <= 1000:
+                    if dist <= 1000 or True:
 
                         # Create collision ellipsoids with passed in parameters
-                        ellipsoid0 = self.collisionEllipsoid(colliders[0], colliders[1], colliders[2], time)
-                        ellipsoid1 = self.collisionEllipsoid(colliders[3], colliders[4], colliders[5], time)
+                        ellipsoid0 = self.collisionEllipsoid(colliders[0], colliders[1], colliders[2], time, 0)
+                        ellipsoid1 = self.collisionEllipsoid(colliders[3], colliders[4], colliders[5], time, 1)
                         
                         collider_0 = self.ax1.plot_surface(ellipsoid0[0] + x0, ellipsoid0[1] + y0, ellipsoid0[2] + z0, color='r', alpha=0.2)
                         collider_1 = self.ax1.plot_surface(ellipsoid1[0] + x1, ellipsoid1[1] + y1, ellipsoid1[2] + z1, color='r', alpha=0.2)
