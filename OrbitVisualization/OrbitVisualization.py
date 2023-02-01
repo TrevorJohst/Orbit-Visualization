@@ -15,13 +15,14 @@ class TLE:
         else:
             raise ValueError
 
-def compareSatellites(file_directory, environment, save_directory=None):
+def compareSatellites(file_directory, environment, save_directory=None, colliders=None):
     """
     Produce an animation comparing two satellite orbits
 
     Args:
     file_directory - location of stored text file assuming cwd, should be 2 TLEs across 4 lines
     environment - an existing environment object that the animation will be produced in
+    colliders - Tuple containing all collider details for both satellites (in_track0, cross_track0, radial_0, in_track1, cross_track1, radial_1)
     """
     
     # Unpack data from file
@@ -37,7 +38,7 @@ def compareSatellites(file_directory, environment, save_directory=None):
     environment.addSatellite(TLE(lines[2] + "\n" + lines[3]))
 
     # Animate the comparison
-    environment.animate(filename=save_directory, comparison=True)
+    environment.animate(filename=save_directory, comparison=True, colliders=colliders)
 
 def graphOrbits(file_directory, environment):
     """
@@ -68,19 +69,24 @@ def graphOrbits(file_directory, environment):
 if __name__ == "__main__":
     
     # File directory of the data, assume current working directory
-    filedirectory = r"\Data\25 Sats\orbits.txt"
+    # filedirectory = r"\Data\25 Sats\orbits.txt"
+    filedirectory = r"\Data\Interesting Collisions\1.txt"
 
     # Filename to save animation as
-    savename = "3"
+    savename = r"Orbit Output\colliders"
 
     ts = load.timescale()
     test = ts.utc(2023, 1, 11)
 
     # Earth object our satellites act around
-    Earth = Environment(8000, ts.utc(2023, 1, 11), duration=4, grid=True, darkmode=True)
+    Earth = Environment(8000, ts.utc(2023, 1, 11), duration=4, grid=True, darkmode=True, Earth=True)
+
+    # Fill collider data (in-track, cross-track, radial)
+    colliders = (2000, 1000, 1100,
+                 1400, 800, 1000)
 
     # Compares 2 satellites, output directory can be manually changed
-    #compareSatellites(filedirectory, Earth, save_directory="Orbit Output\\" + savename)
+    compareSatellites(filedirectory, Earth, save_directory=None, colliders=colliders)
 
     # Graphs the orbits of n satellites, file should be a list of TLEs
-    graphOrbits(filedirectory, Earth)
+    #graphOrbits(filedirectory, Earth)

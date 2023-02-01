@@ -8,7 +8,7 @@ from datetime import timedelta
 import numpy as np
 
 class Environment:
-    def __init__(self, env_radius, start_time, duration=None, grid=False, darkmode=True):
+    def __init__(self, env_radius, start_time, duration=None, grid=False, darkmode=True, Earth=True):
         """
         Initializes an environment for orbits to be represented in
 
@@ -19,6 +19,8 @@ class Environment:
         grid - whether or not to display the 3D grid (Defaults to False)
         darkmode - whether or not to display output in darkmode (Defaults to True)
         """
+
+        self.temp = env_radius
 
         # Object variables
         self.satellites = []
@@ -38,7 +40,7 @@ class Environment:
         # Create figure and set sizing
         self.fig = plt.figure(figsize = (7,6))
         gs = GridSpec(2, 1, height_ratios=[3, 1])
-        self.ax1 = self.fig.add_subplot(gs[0],projection = '3d')
+        self.ax1 = self.fig.add_subplot(gs[0], projection = '3d')
         self.ax2 = self.fig.add_subplot(gs[1])
 
         # Configure second graph
@@ -75,7 +77,7 @@ class Environment:
         # Darkmode handling
         if darkmode:   
             linecolor = 'white'
-
+            
             # Set backgrounds to dark color
             self.fig.patch.set_facecolor(dark)
             self.ax1.set_facecolor(dark)
@@ -107,7 +109,8 @@ class Environment:
         y = radius*np.sin(theta)*np.sin(phi)
         z = radius*np.cos(phi)
 
-        self.ax1.plot_wireframe(x, y, z, color=linecolor, linewidth=0.5)
+        if Earth:
+            self.ax1.plot_wireframe(x, y, z, color=linecolor, linewidth=0.5)
 
     def addSatellite(self, TLE):
         """
@@ -123,13 +126,71 @@ class Environment:
         # Add name to the list
         self.names.append(TLE.line1.split(' ')[1])
 
-    def animate(self, filename=None, comparison=False):
+    def collisionEllipsoid(self, in_track, cross_track, radial, time):
+        """
+        Creates a collision ellipsoid along the in-track and returns it
+
+        Args:
+        in_track - length of ellipsoid in in-track direction
+        cross_track - length of ellipsoid in cross-track direction
+        radial - length of ellipsoid in radial direction
+
+        Returns:
+        Tuple of ndarrays for plotting an ellipsoid surface (X, Y, Z)
+        """
+
+        # Create base ellipsoid data
+        theta, phi = np.mgrid[0:2*np.pi:20j, 0:np.pi:20j]
+        
+        x = in_track * np.sin(theta)*np.cos(phi)
+        y = cross_track * np.sin(theta)*np.sin(phi)
+        z = radial * np.cos(theta)
+
+        # Determine angles of velocity vector
+        vx, vy, vz = self.satellites[0].at(time).velocity.m_per_s
+        speed0 = np.sqrt(vx**2 + vy**2 + vz**2)
+                        
+        upsilon = np.arctan(vy/vx)
+        if vx < 0:
+            beta = -np.arccos(vz/speed0) + np.pi/2
+        else:
+            beta = np.arccos(vz/speed0) - np.pi/2
+        
+        # Z-axis rotation matrix
+        Rz = np.array([[np.cos(upsilon),    -np.sin(upsilon),     0],
+                       [np.sin(upsilon),    np.cos(upsilon),      0],
+                       [0,                  0,                    1]])
+
+        # Y-axis rotation matrix
+        Ry = np.array([[np.cos(beta),       0,          np.sin(beta)],
+                       [0,                  1,          0           ],
+                       [-np.sin(beta),      0,          np.cos(beta)]])
+        
+        # TODO: X-axis rotation matrix?
+        
+        # Rotate all ellipsoid points
+        OX = []
+        OY = []
+        OZ = []
+
+        for i in range(len(x)):
+            pos = np.array([x[i], y[i], z[i]])
+            A = Rz @ Ry @ pos # There has to be a better way to do this
+
+            OX.append(A[0])
+            OY.append(A[1])
+            OZ.append(A[2])
+
+        return (np.asarray(OX), np.asarray(OY), np.asarray(OZ))
+
+    def animate(self, filename=None, comparison=False, colliders=None):
         """
         Produces an animation of existing satellites in orbit (environment must have a duration)
 
         Args:
         filename - Location and filename to save animation at, starts at base directory (EX: Documents\Orbits\Starlink-4171)
         comparison - Whether or not to include the separation graph (environment must have exactly 2 satellites)
+        colliders - Tuple containing all collider details for both satellites (in_track0, cross_track0, radial_0, in_track1, cross_track1, radial_1)
         """
 
         # Ensure the environment is initialized for animation
@@ -157,14 +218,36 @@ class Environment:
                 x0, y0, z0 = self.satellites[0].at(time).position.km
                 x1, y1, z1 = self.satellites[1].at(time).position.km
                 dist = np.sqrt((x1-x0)**2 + (y1-y0)**2 + (z1-z0)**2)
-                
+
                 # Use parent method's arrays
                 nonlocal separations
                 nonlocal times
 
                 # Append separation distance and current time onto arrays
                 separations = np.append(separations, dist)
+                
+                if colliders:
 
+                    # Remove old colliders if needed
+                    nonlocal collider_0
+                    if collider_0.axes:
+                        collider_0.remove()
+                    
+                    nonlocal collider_1
+                    if collider_1.axes:
+                        collider_1.remove()
+
+                    # Close approach handling
+                    if dist <= 1000:
+
+                        # Create collision ellipsoids with passed in parameters
+                        ellipsoid0 = self.collisionEllipsoid(colliders[0], colliders[1], colliders[2], time)
+                        ellipsoid1 = self.collisionEllipsoid(colliders[3], colliders[4], colliders[5], time)
+                        
+                        collider_0 = self.ax1.plot_surface(ellipsoid0[0] + x0, ellipsoid0[1] + y0, ellipsoid0[2] + z0, color='r', alpha=0.2)
+                        collider_1 = self.ax1.plot_surface(ellipsoid1[0] + x1, ellipsoid1[1] + y1, ellipsoid1[2] + z1, color='r', alpha=0.2)
+
+                # Increment time
                 if times.size == 0:
                     times = np.append(times, 0)
                 else:
@@ -197,16 +280,22 @@ class Environment:
             self.ax2.set_visible(True)
 
         for i, sat in enumerate(self.satellites):
+            
+            # Create plot for satellite
+            sat_plot, = self.ax1.plot(0, 1, marker="o")
+            sat_plots.append(sat_plot)       
 
             # Plot orbital path
             pos = sat.at(t).position.km
             x, y, z = pos
-            self.ax1.plot(x, y, z, label=self.names[i])
-
-            # Create plot for satellite
-            sat_plot, = self.ax1.plot(0, 1, marker="o")
-            sat_plots.append(sat_plot)           
+            self.ax1.plot(x, y, z, label=self.names[i], color=sat_plot.get_color())    
             
+        if colliders:
+
+            # Create empty collider surfaces
+            collider_0 = self.ax1.plot_surface(np.empty((0,0)), np.empty((0,0)), np.empty((0,0)))
+            collider_1 = self.ax1.plot_surface(np.empty((0,0)), np.empty((0,0)), np.empty((0,0)))
+
         # Show legend
         self.ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5), framealpha=0, labelcolor='linecolor')
             
@@ -219,7 +308,7 @@ class Environment:
             f = r"C:\\" + filename + ".gif"
             writergif = animation.PillowWriter(fps=15) 
             anim.save(f, writer=writergif)
-
+            
         # Show the animation
         plt.show()
 
