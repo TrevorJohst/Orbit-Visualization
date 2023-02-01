@@ -20,8 +20,6 @@ class Environment:
         darkmode - whether or not to display output in darkmode (Defaults to True)
         """
 
-        self.temp = env_radius
-
         # Object variables
         self.satellites = []
         self.names = []
@@ -183,13 +181,14 @@ class Environment:
 
         return (np.asarray(OX), np.asarray(OY), np.asarray(OZ))
 
-    def animate(self, filename=None, comparison=False, colliders=None):
+    def animate(self, filename=None, comparison=False, scroll_graph=False, colliders=None):
         """
         Produces an animation of existing satellites in orbit (environment must have a duration)
 
         Args:
         filename - Location and filename to save animation at, starts at base directory (EX: Documents\Orbits\Starlink-4171)
         comparison - Whether or not to include the separation graph (environment must have exactly 2 satellites)
+        scroll_graph - Whether or not the comparison graph should scroll with data or display all at once
         colliders - Tuple containing all collider details for both satellites (in_track0, cross_track0, radial_0, in_track1, cross_track1, radial_1)
         """
 
@@ -258,12 +257,13 @@ class Environment:
                 line.set_ydata(separations)
 
                 # Scroll both x and y axes to accommodate new data
-                length = len(separations)/2
+                if scroll_graph:
+                    length = len(separations)/2
 
-                if length > repeat:
-                    self.ax2.set_xlim(length-repeat, length)
-                else:
-                    self.ax2.set_xlim(0, repeat)
+                    if length > repeat:
+                        self.ax2.set_xlim(length-repeat, length)
+                    else:
+                        self.ax2.set_xlim(0, repeat)
 
                 self.ax2.set_ylim(0 - 500, np.amax(separations) + 500)
 
@@ -278,6 +278,7 @@ class Environment:
 
             # Make second graph visible
             self.ax2.set_visible(True)
+            self.ax2.set_xlim(0, self.duration*60)
 
         for i, sat in enumerate(self.satellites):
             
@@ -313,7 +314,9 @@ class Environment:
         plt.show()
 
     def image(self):
-        """Produces an image of existing satellites in orbit"""
+        """
+        Produces an image of existing satellites in orbit
+        """
         
         t = self.ts.linspace(self.start_time, self.end_time, self.duration*120)
 
