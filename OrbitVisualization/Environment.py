@@ -1,4 +1,3 @@
-from pprint import pp
 from skyfield.api import EarthSatellite
 from skyfield.api import load
 import matplotlib.pyplot as plt
@@ -8,21 +7,38 @@ from datetime import timedelta
 import numpy as np
 
 class Environment:
-    def __init__(self, env_radius, start_time, duration=None, grid=False, darkmode=True, Earth=True):
+    class _Satellite:
+        def __init__(self, EarthSatellite, name, collider):
+            """
+            Initializes a meta satellite used to better organize satellite data
+
+            Args:
+            EarthSatellite - an EarthSatellite object that the satellite is based around
+            name - norad ID of the satellite used to refer to it
+            collider - collider object used in close encounter handling (optional)
+            """
+
+            # Object variables
+            self.sat = EarthSatellite
+            self.name = name
+            self.collider = collider
+            self.plot = None
+
+    def __init__(self, env_radius, start_time, duration=None, grid=True, darkmode=False, earth=True):
         """
         Initializes an environment for orbits to be represented in
 
         Args:
-        env_radius - half of the total width of the graph environment, should be >6371
+        env_radius - half of the total width of the graph environment in km, should be >6371
         start_time - when the simulation should be started, a time object from the skyfield library
-        duration - length of simulation in hours (Optional)
-        grid - whether or not to display the 3D grid (Defaults to False)
-        darkmode - whether or not to display output in darkmode (Defaults to True)
+        duration - length of simulation in hours, can be decimal (Optional)
+        grid - whether or not to display the 3D grid (Defaults to True)
+        darkmode - whether or not to display output in darkmode (Defaults to False)
+        earth - whether or not to display the Earth in animation (Defaults to True)
         """
 
         # Object variables
         self.satellites = []
-        self.names = []
         self.ts = load.timescale()
         self.start_time = start_time
         self.duration = duration
@@ -107,37 +123,41 @@ class Environment:
         y = radius*np.sin(theta)*np.sin(phi)
         z = radius*np.cos(phi)
 
-        if Earth:
+        if earth:
             self.ax1.plot_wireframe(x, y, z, color=linecolor, linewidth=0.5)
-
-    def addSatellite(self, TLE):
+    
+    def addSatellite(self, TLE_line1, TLE_line2, collider=None):
         """
         Adds one satellite to the list along with its name
 
         Args:
-        TLE - TLE object for desired satellite
+        TLE_line1, TLE_line2 - corresponding lines of the TLE
+        collider - collider object for this satellite (optional)
         """
 
-        # Add satellite to the list
-        self.satellites.append(EarthSatellite(TLE.line1, TLE.line2))
-        
-        # Add name to the list
-        self.names.append(TLE.line1.split(' ')[1])
+        # Build data for constructing the satellite object
+        EarthSat = EarthSatellite(TLE_line1, TLE_line2)
+        name = TLE_line1.split(' ')[1]
 
-    def collisionEllipsoid(self, in_track, cross_track, radial, time, sat_num):
+        # Append a satellite object to the list
+        self.satellites.append(self._Satellite(EarthSat, name, collider))
+
+    def collisionEllipsoid(self, sat_meta, time):
         """
         Creates a collision ellipsoid along the in-track and returns it
 
         Args:
-        in_track - length of ellipsoid in in-track direction
-        cross_track - length of ellipsoid in cross-track direction
-        radial - length of ellipsoid in radial direction
+        sat_meta - meta satellite object we are tailoring the ellipsoid to
         time - SkyField time object of time at desired ellipsoid
-        sat_num - Which satellite the ellipsoid is tailored for
 
         Returns:
         Tuple of ndarrays for plotting an ellipsoid surface (X, Y, Z)
         """
+
+        # Unpack data from meta satellite
+        in_track = sat_meta.collider.in_track
+        cross_track = sat_meta.collider.cross_track
+        radial = sat_meta.collider.cross_track
 
         # Create base ellipsoid data
         theta, phi = np.mgrid[0:2*np.pi:20j, 0:np.pi:20j]
@@ -147,7 +167,7 @@ class Environment:
         z = radial * np.cos(theta)
 
         # Determine angles of velocity vector
-        vx, vy, vz = self.satellites[sat_num].at(time).velocity.m_per_s
+        vx, vy, vz = sat_meta.sat.at(time).velocity.m_per_s
         speed0 = np.sqrt(vx**2 + vy**2 + vz**2)
                         
         upsilon = np.arctan(vy/vx)
@@ -183,15 +203,15 @@ class Environment:
 
         return (np.asarray(OX), np.asarray(OY), np.asarray(OZ))
 
-    def animate(self, filename=None, comparison=False, scroll_graph=False, colliders=None):
+    def animate(self, file_name=None, comparison=False, scroll_graph=False, colliders=False):
         """
         Produces an animation of existing satellites in orbit (environment must have a duration)
 
         Args:
-        filename - Location and filename to save animation at, starts at base directory (EX: Documents\Orbits\Starlink-4171)
-        comparison - Whether or not to include the separation graph (environment must have exactly 2 satellites)
-        scroll_graph - Whether or not the comparison graph should scroll with data or display all at once
-        colliders - Tuple containing all collider details for both satellites (in_track0, cross_track0, radial_0, in_track1, cross_track1, radial_1)
+        file_name - Location and file name to save animation at (EX: c:\Documents\Orbits\Starlink-4171)
+        comparison - Whether or not to include the separation graph, must have exactly 2 satellites (Defaults to False)
+        scroll_graph - Whether or not the comparison graph should scroll with data or display all at once (Defaults to False)
+        colliders - Whether or not to display colliders when a close approach occurs (Defaults to False)
         """
 
         # Ensure the environment is initialized for animation
@@ -201,6 +221,10 @@ class Environment:
         # If we are including the comparison animation ensure we have the correct number of satellites
         if comparison and len(self.satellites) != 2:
             raise RuntimeError("Cannot compare without exactly 2 satellites.")
+
+        # If colliders are enabled ensure both satellites have collider objects
+        if colliders and (not self.satellites[0].collider or not self.satellites[1].collider):
+            raise RuntimeError("Colliders was enabled but one of the satellites lacks a collider object")
         
         def update(time):
             """
@@ -210,20 +234,20 @@ class Environment:
             time - SkyField time object of time at desired frame
             """
 
-            for i, sat in enumerate(self.satellites):
+            for sat_meta in self.satellites:
                 
                 # Get coordinates of satellite at current time
-                x, y, z =  self.satellites[i].at(time).position.km
+                x, y, z =  sat_meta.sat.at(time).position.km
                 
                 # Update satellite plot's position on graph
-                sat_plots[i].set_data([x], [y])
-                sat_plots[i].set_3d_properties([z])
+                sat_meta.plot.set_data([x], [y])
+                sat_meta.plot.set_3d_properties([z])
 
             if comparison:
 
                 # Find separation of satellites
-                x0, y0, z0 = self.satellites[0].at(time).position.km
-                x1, y1, z1 = self.satellites[1].at(time).position.km
+                x0, y0, z0 = self.satellites[0].sat.at(time).position.km
+                x1, y1, z1 = self.satellites[1].sat.at(time).position.km
                 dist = np.sqrt((x1-x0)**2 + (y1-y0)**2 + (z1-z0)**2)
 
                 # Use parent method's arrays
@@ -236,23 +260,23 @@ class Environment:
                 if colliders:
 
                     # Remove old colliders if needed
-                    nonlocal collider_0
-                    if collider_0.axes:
-                        collider_0.remove()
+                    nonlocal collider0
+                    if collider0.axes:
+                        collider0.remove()
                     
-                    nonlocal collider_1
-                    if collider_1.axes:
-                        collider_1.remove()
+                    nonlocal collider1
+                    if collider1.axes:
+                        collider1.remove()
 
                     # Close approach handling
-                    if dist <= 1000 or True:
+                    if dist <= 1000:
 
                         # Create collision ellipsoids with passed in parameters
-                        ellipsoid0 = self.collisionEllipsoid(colliders[0], colliders[1], colliders[2], time, 0)
-                        ellipsoid1 = self.collisionEllipsoid(colliders[3], colliders[4], colliders[5], time, 1)
+                        ellipsoid0 = self.collisionEllipsoid(self.satellites[0], time)
+                        ellipsoid1 = self.collisionEllipsoid(self.satellites[1], time)
                         
-                        collider_0 = self.ax1.plot_surface(ellipsoid0[0] + x0, ellipsoid0[1] + y0, ellipsoid0[2] + z0, color='r', alpha=0.2)
-                        collider_1 = self.ax1.plot_surface(ellipsoid1[0] + x1, ellipsoid1[1] + y1, ellipsoid1[2] + z1, color='r', alpha=0.2)
+                        collider0 = self.ax1.plot_surface(ellipsoid0[0] + x0, ellipsoid0[1] + y0, ellipsoid0[2] + z0, color='r', alpha=0.2)
+                        collider1 = self.ax1.plot_surface(ellipsoid1[0] + x1, ellipsoid1[1] + y1, ellipsoid1[2] + z1, color='r', alpha=0.2)
 
                 # Increment time
                 if times.size == 0:
@@ -276,8 +300,7 @@ class Environment:
                 self.ax2.set_ylim(0 - 500, np.amax(separations) + 500)
 
         # Create local variables
-        t = self.ts.linspace(self.start_time, self.end_time, self.duration*120)
-        sat_plots = []
+        t = self.ts.linspace(self.start_time, self.end_time, int(self.duration*120))
         if comparison:
             separations = np.empty(0)
             times = np.empty(0)
@@ -288,22 +311,22 @@ class Environment:
             self.ax2.set_visible(True)
             self.ax2.set_xlim(0, self.duration*60)
 
-        for i, sat in enumerate(self.satellites):
+        for sat_meta in self.satellites:
             
             # Create plot for satellite
             sat_plot, = self.ax1.plot(0, 1, marker="o")
-            sat_plots.append(sat_plot)       
+            sat_meta.plot = sat_plot
 
             # Plot orbital path
-            pos = sat.at(t).position.km
+            pos = sat_meta.sat.at(t).position.km
             x, y, z = pos
-            self.ax1.plot(x, y, z, label=self.names[i], color=sat_plot.get_color())    
+            self.ax1.plot(x, y, z, label=sat_meta.name, color=sat_plot.get_color())    
             
         if colliders:
 
             # Create empty collider surfaces
-            collider_0 = self.ax1.plot_surface(np.empty((0,0)), np.empty((0,0)), np.empty((0,0)))
-            collider_1 = self.ax1.plot_surface(np.empty((0,0)), np.empty((0,0)), np.empty((0,0)))
+            collider0 = self.ax1.plot_surface(np.empty((0,0)), np.empty((0,0)), np.empty((0,0)))
+            collider1 = self.ax1.plot_surface(np.empty((0,0)), np.empty((0,0)), np.empty((0,0)))
 
         # Show legend
         self.ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5), framealpha=0, labelcolor='linecolor')
@@ -313,8 +336,8 @@ class Environment:
                                                       frames=t, save_count=3000)
 
         # Save the animation if desired
-        if filename:
-            f = r"C:\\" + filename + ".gif"
+        if file_name:
+            f = file_name + ".gif"
             writergif = animation.PillowWriter(fps=15) 
             anim.save(f, writer=writergif)
             
@@ -328,12 +351,12 @@ class Environment:
         
         t = self.ts.linspace(self.start_time, self.end_time, self.duration*120)
 
-        for i, sat in enumerate(self.satellites):
+        for sat_meta in self.satellites:
 
             # Plot orbital path
-            pos = sat.at(t).position.km
+            pos = sat_meta.sat.at(t).position.km
             x, y, z = pos
-            self.ax1.plot(x, y, z, label=self.names[i])
+            self.ax1.plot(x, y, z, label=sat_meta.name)
             
         # Show legend
         self.ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5), framealpha=0, labelcolor='linecolor')

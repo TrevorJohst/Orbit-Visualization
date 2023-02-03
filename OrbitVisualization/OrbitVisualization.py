@@ -2,51 +2,29 @@ from Environment import Environment
 from skyfield.api import load
 from pathlib import Path
 
-class TLE:
-    def __init__(self, TLE):
-        """Initialize a TLE object from a string including newlines"""
+class Collider:
+    def __init__(self, in_track, cross_track, radial):
+        """
+        Initializes a collider object for a satellite
 
-        # Extract TLE lines according to file formatting
-        lines = TLE.splitlines()
-        
-        if len(lines) == 2:
-            self.line1 = lines[0]
-            self.line2 = lines[1]
-        else:
-            raise ValueError
+        Args:
+        in_track, cross_track, radial - size of the ellipsoid in the corresponding direction
+        """
 
-def compareSatellites(file_directory, environment, save_directory=None, colliders=None):
+        # Object variables
+        self.in_track = in_track
+        self.cross_track = cross_track
+        self.radial = radial
+
+
+def loadEnvironment(file_directory, environment, colliders=None):
     """
-    Produce an animation comparing two satellite orbits
-
-    Args:
-    file_directory - location of stored text file assuming cwd, should be 2 TLEs across 4 lines
-    environment - an existing environment object that the animation will be produced in
-    colliders - Tuple containing all collider details for both satellites (in_track0, cross_track0, radial_0, in_track1, cross_track1, radial_1)
-    """
+    Loads an environment object with satellites from a text file
     
-    # Unpack data from file
-    content = Path(str(Path.cwd()) + file_directory).read_text()
-    lines = content.split('\n')
-    
-    # Ensure the file is valid
-    if len(lines) != 4:
-        raise RuntimeError("A comparison should contain exactly 2 TLEs.")
-
-    # Add both satellites to environment
-    environment.addSatellite(TLE(lines[0] + "\n" + lines[1]))
-    environment.addSatellite(TLE(lines[2] + "\n" + lines[3]))
-
-    # Animate the comparison
-    environment.animate(filename=save_directory, comparison=True, colliders=colliders)
-
-def graphOrbits(file_directory, environment):
-    """
-    Produces a graph displaying the orbits of N satellites
-
     Args:
     file_directory - location of stored text file assuming cwd, should be N TLEs across 2N lines
     environment - an existing environment object that the graph will be produced in
+    colliders - list of collider objects for each satellite
     """
     
     # Unpack data from file
@@ -60,33 +38,74 @@ def graphOrbits(file_directory, environment):
     # Add each satellite to the environment
     i = 0
     while i < len(lines):
-        environment.addSatellite(TLE(lines[i] + "\n" + lines[i+1]))
+
+        if colliders:
+            environment.addSatellite(lines[i], lines[i+1], colliders[i // 2])
+        else:
+            environment.addSatellite(lines[i], lines[i+1])
+
         i += 2
 
-    # Produce an image of the orbits
-    environment.image()
+def makeTime(year, month, day, hour):
+    """
+    Produces and returns a skyfield time object for use in an environment
+
+    Args:
+    year, month, day - integer representation of corresponding time factor
+    hour - either an integer or string representation in the format HH:MM:S (as used by CelesTrak)
+
+    Returns:
+    Time object corresponding to passed in parameters
+    """
+
+    # Make timescale object
+    ts = load.timescale()
+    
+    # Return time object based on what format hour was passed in as
+    if type(hour) is int:
+        return ts.utc(year, month, day, hour)
+    else:
+        unpacked = hour.split(':')
+        return ts.utc(year, month, day, int(unpacked[0]), int(unpacked[1]), float(unpacked[2]))
 
 if __name__ == "__main__":
     
     # File directory of the data, assume current working directory
-    # filedirectory = r"\Data\25 Sats\orbits.txt"
-    filedirectory = r"\Data\Interesting Collisions\1.txt"
+    file_directory_orbits = r"\Data\25 Sats\orbits.txt"
+    file_directory_comparison = r"\Data\Interesting Collisions\1.txt"
 
-    # Filename to save animation as
-    savename = r"Orbit Output\colliders"
+    # File directory to save animation to
+    save_directory = r"c:\Orbit Output\\"
 
-    ts = load.timescale()
-    test = ts.utc(2023, 1, 11)
+    # Name of animation we are saving
+    save_name = "colliders"
+
+    # Produce a timescale object for testing
+    time = makeTime(2023, 1, 11, '08:06:08.084')
 
     # Earth object our satellites act around
-    Earth = Environment(8000, ts.utc(2023, 1, 11), duration=4, grid=False, darkmode=True, Earth=False)
+    Earth = Environment(8000, time, duration=2.5, grid=False, darkmode=False, earth=True)
+    
+    # # Uncomment to demonstrate loading a file with many satellites and producing an orbital image
+    #
+    # # Load satellites into environment
+    # loadEnvironment(file_directory_orbits, Earth)
+    # 
+    # # Produce an image of all satellites orbital paths
+    # Earth.image()
 
-    # Fill collider data (in-track, cross-track, radial)
-    colliders = (2000, 1000, 1100,
-                 1400, 800, 1000)
 
-    # Compares 2 satellites, output directory can be manually changed
-    compareSatellites(filedirectory, Earth, save_directory=None, colliders=colliders)
-
-    # Graphs the orbits of n satellites, file should be a list of TLEs
-    #graphOrbits(filedirectory, Earth)
+    # # Uncomment to demonstrate loading a file with two satellites and producing a comparison animation
+    # 
+    # # Manually create collider objects for our two satellites 
+    # collider1 = Collider(2000, 1000, 1100)
+    # collider2 = Collider(1400, 800, 1000)
+    # 
+    # # Load into a list to be passed into environment
+    # colliders = [collider1, collider2]
+    # 
+    # # Load satellites into environment
+    # loadEnvironment(file_directory_comparison, Earth, colliders)
+    # 
+    # # Produce an animation of two satellites in orbit comparing their separations and displaying colliders
+    # Earth.animate(file_name=save_name + save_directory, comparison=True, colliders=True)
