@@ -16,7 +16,6 @@ class Collider:
         self.cross_track = cross_track
         self.radial = radial
 
-
 def loadEnvironment(file_directory, environment, colliders=None):
     """
     Loads an environment object with satellites from a text file
@@ -86,6 +85,7 @@ if __name__ == "__main__":
     # Earth object our satellites act around
     Earth = Environment(8000, time, duration=2.5, grid=False, darkmode=False, earth=True)
     
+
     # # Uncomment to demonstrate loading a file with many satellites and producing an orbital image
     #
     # # Load satellites into environment
@@ -93,6 +93,15 @@ if __name__ == "__main__":
     # 
     # # Produce an image of all satellites orbital paths
     # Earth.image()
+
+
+    # # Uncomment to demonstrate loading a file with many satellites and producing an orbital animation
+    # 
+    # # Load satellites into environment
+    # loadEnvironment(file_directory_orbits, Earth)
+    # 
+    # # Produce an image of all satellites orbital paths
+    # Earth.animate()
 
 
     # # Uncomment to demonstrate loading a file with two satellites and producing a comparison animation
