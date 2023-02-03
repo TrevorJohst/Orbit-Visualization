@@ -6,6 +6,20 @@ from matplotlib.gridspec import GridSpec
 from datetime import timedelta
 import numpy as np
 
+class Collider:
+    def __init__(self, in_track, cross_track, radial):
+        """
+        Initializes a collider object for a satellite
+
+        Args:
+        in_track, cross_track, radial - size of the ellipsoid in the corresponding direction
+        """
+
+        # Object variables
+        self.in_track = in_track
+        self.cross_track = cross_track
+        self.radial = radial
+
 class Environment:
     class _Satellite:
         def __init__(self, EarthSatellite, name, collider):
@@ -125,24 +139,8 @@ class Environment:
 
         if earth:
             self.ax1.plot_wireframe(x, y, z, color=linecolor, linewidth=0.5)
-    
-    def addSatellite(self, TLE_line1, TLE_line2, collider=None):
-        """
-        Adds one satellite to the list along with its name
 
-        Args:
-        TLE_line1, TLE_line2 - corresponding lines of the TLE
-        collider - collider object for this satellite (optional)
-        """
-
-        # Build data for constructing the satellite object
-        EarthSat = EarthSatellite(TLE_line1, TLE_line2)
-        name = TLE_line1.split(' ')[1]
-
-        # Append a satellite object to the list
-        self.satellites.append(self._Satellite(EarthSat, name, collider))
-
-    def collisionEllipsoid(self, sat_meta, time):
+    def _collisionEllipsoid(self, sat_meta, time):
         """
         Creates a collision ellipsoid along the in-track and returns it
 
@@ -202,6 +200,22 @@ class Environment:
             OZ.append(A[2])
 
         return (np.asarray(OX), np.asarray(OY), np.asarray(OZ))
+    
+    def addSatellite(self, TLE_line1, TLE_line2, collider=None):
+        """
+        Adds one satellite to the list along with its name
+
+        Args:
+        TLE_line1, TLE_line2 - corresponding lines of the TLE
+        collider - collider object for this satellite (optional)
+        """
+
+        # Build data for constructing the satellite object
+        EarthSat = EarthSatellite(TLE_line1, TLE_line2)
+        name = TLE_line1.split(' ')[1]
+
+        # Append a satellite object to the list
+        self.satellites.append(self._Satellite(EarthSat, name, collider))
 
     def animate(self, file_name=None, comparison=False, scroll_graph=False, colliders=False):
         """
@@ -272,8 +286,8 @@ class Environment:
                     if dist <= 1000:
 
                         # Create collision ellipsoids with passed in parameters
-                        ellipsoid0 = self.collisionEllipsoid(self.satellites[0], time)
-                        ellipsoid1 = self.collisionEllipsoid(self.satellites[1], time)
+                        ellipsoid0 = self._collisionEllipsoid(self.satellites[0], time)
+                        ellipsoid1 = self._collisionEllipsoid(self.satellites[1], time)
                         
                         collider0 = self.ax1.plot_surface(ellipsoid0[0] + x0, ellipsoid0[1] + y0, ellipsoid0[2] + z0, color='r', alpha=0.2)
                         collider1 = self.ax1.plot_surface(ellipsoid1[0] + x1, ellipsoid1[1] + y1, ellipsoid1[2] + z1, color='r', alpha=0.2)
