@@ -1,20 +1,7 @@
 from Environment import Environment
+from Environment import Collider
 from skyfield.api import load
 from pathlib import Path
-
-class Collider:
-    def __init__(self, in_track, cross_track, radial):
-        """
-        Initializes a collider object for a satellite
-
-        Args:
-        in_track, cross_track, radial - size of the ellipsoid in the corresponding direction
-        """
-
-        # Object variables
-        self.in_track = in_track
-        self.cross_track = cross_track
-        self.radial = radial
 
 
 def loadEnvironment(file_directory, environment, colliders=None):
@@ -29,7 +16,7 @@ def loadEnvironment(file_directory, environment, colliders=None):
     
     # Unpack data from file
     content = Path(str(Path.cwd()) + file_directory).read_text()
-    lines = content.split('\n')
+    lines = content.splitlines()
 
     # Slight sanity check
     if len(lines) % 2 != 0:
@@ -86,6 +73,7 @@ if __name__ == "__main__":
     # Earth object our satellites act around
     Earth = Environment(8000, time, duration=2.5, grid=False, darkmode=False, earth=True)
     
+
     # # Uncomment to demonstrate loading a file with many satellites and producing an orbital image
     #
     # # Load satellites into environment
@@ -95,17 +83,26 @@ if __name__ == "__main__":
     # Earth.image()
 
 
-    # # Uncomment to demonstrate loading a file with two satellites and producing a comparison animation
-    # 
-    # # Manually create collider objects for our two satellites 
-    # collider1 = Collider(2000, 1000, 1100)
-    # collider2 = Collider(1400, 800, 1000)
-    # 
-    # # Load into a list to be passed into environment
-    # colliders = [collider1, collider2]
+    # # Uncomment to demonstrate loading a file with many satellites and producing an orbital animation
     # 
     # # Load satellites into environment
-    # loadEnvironment(file_directory_comparison, Earth, colliders)
+    # loadEnvironment(file_directory_orbits, Earth)
     # 
-    # # Produce an animation of two satellites in orbit comparing their separations and displaying colliders
-    # Earth.animate(file_name=save_name + save_directory, comparison=True, colliders=True)
+    # # Produce an image of all satellites orbital paths
+    # Earth.animate()
+
+
+    # Uncomment to demonstrate loading a file with two satellites and producing a comparison animation
+    
+    # Manually create collider objects for our two satellites 
+    collider1 = Collider(2000, 1000, 1100)
+    collider2 = Collider(1400, 800, 1000)
+    
+    # Load into a list to be passed into environment
+    colliders = [collider1, collider2]
+    
+    # Load satellites into environment
+    loadEnvironment(file_directory_comparison, Earth, colliders)
+    
+    # Produce an animation of two satellites in orbit comparing their separations and displaying colliders
+    Earth.animate(file_name=save_directory + save_name, comparison=True, colliders=True)
