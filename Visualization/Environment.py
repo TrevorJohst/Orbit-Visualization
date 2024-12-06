@@ -12,7 +12,7 @@ class Collider:
         Initializes a collider object for a satellite
 
         Args:
-        in_track, cross_track, radial - size of the ellipsoid in the corresponding direction
+            in_track, cross_track, radial: size of the ellipsoid in the corresponding direction
         """
 
         # Object variables
@@ -27,9 +27,9 @@ class Environment:
             Initializes a meta satellite used to better organize satellite data
 
             Args:
-            EarthSatellite - an EarthSatellite object that the satellite is based around
-            name - norad ID of the satellite used to refer to it
-            collider - collider object used in close encounter handling (optional)
+                EarthSatellite: an EarthSatellite object that the satellite is based around
+                name: norad ID of the satellite used to refer to it
+                collider: collider object used in close encounter handling (optional)
             """
 
             # Object variables
@@ -43,12 +43,12 @@ class Environment:
         Initializes an environment for orbits to be represented in
 
         Args:
-        env_radius - half of the total width of the graph environment in km, should be >6371
-        start_time - when the simulation should be started, a time object from the skyfield library
-        duration - length of simulation in hours, can be decimal (Optional)
-        grid - whether or not to display the 3D grid (Defaults to True)
-        darkmode - whether or not to display output in darkmode (Defaults to False)
-        earth - whether or not to display the Earth in animation (Defaults to True)
+            env_radius: half of the total width of the graph environment in km, should be >6371
+            start_time: when the simulation should be started, a time object from the skyfield library
+            duration: length of simulation in hours, can be decimal (Optional)
+            grid: whether or not to display the 3D grid (Defaults to True)
+            darkmode: whether or not to display output in darkmode (Defaults to False)
+            earth: whether or not to display the Earth in animation (Defaults to True)
         """
 
         # Object variables
@@ -145,11 +145,11 @@ class Environment:
         Creates a collision ellipsoid along the in-track and returns it
 
         Args:
-        sat_meta - meta satellite object we are tailoring the ellipsoid to
-        time - SkyField time object of time at desired ellipsoid
+            sat_meta: meta satellite object we are tailoring the ellipsoid to
+            time: SkyField time object of time at desired ellipsoid
 
         Returns:
-        Tuple of ndarrays for plotting an ellipsoid surface (X, Y, Z)
+            Tuple of ndarrays for plotting an ellipsoid surface (X, Y, Z)
         """
 
         # Unpack data from meta satellite
@@ -206,8 +206,8 @@ class Environment:
         Adds one satellite to the list along with its name
 
         Args:
-        TLE_line1, TLE_line2 - corresponding lines of the TLE
-        collider - collider object for this satellite (optional)
+            TLE_line1, TLE_line2: corresponding lines of the TLE
+            collider: collider object for this satellite (optional)
         """
 
         # Build data for constructing the satellite object
@@ -222,10 +222,10 @@ class Environment:
         Produces an animation of existing satellites in orbit (environment must have a duration)
 
         Args:
-        file_name - Location and file name to save animation at (EX: c:\Documents\Orbits\Starlink-4171)
-        comparison - Whether or not to include the separation graph, must have exactly 2 satellites (Defaults to False)
-        scroll_graph - Whether or not the comparison graph should scroll with data or display all at once (Defaults to False)
-        colliders - Whether or not to display colliders when a close approach occurs (Defaults to False)
+            file_name: Location and file name to save animation at (EX: c:\Documents\Orbits\Starlink-4171)
+            comparison: Whether or not to include the separation graph, must have exactly 2 satellites (Defaults to False)
+            scroll_graph: Whether or not the comparison graph should scroll with data or display all at once (Defaults to False)
+            colliders: Whether or not to display colliders when a close approach occurs (Defaults to False)
         """
 
         # Ensure the environment is initialized for animation
@@ -245,7 +245,7 @@ class Environment:
             Helper method that updates our environment
 
             Args:
-            time - SkyField time object of time at desired frame
+                time: SkyField time object of time at desired frame
             """
 
             for sat_meta in self.satellites:
